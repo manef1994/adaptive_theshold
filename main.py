@@ -181,7 +181,7 @@ def code1(array1, array2):
     T = []
     it_n = 90 - 70
 
-    for i in range (70, 100):
+    for i in range (50, 100):
         per.append(i)
 
     # print("per values are \t", per)
@@ -209,15 +209,13 @@ def code1(array1, array2):
             thresh_A = thresh(go_in_A, per[i])
             thresh_N = thresh(go_in_N, per[i])
 
-            for y in range(len(go_in_N)):
+            if (ff > 1):
+                ff = 0
+                break
 
-                if (ff > 1):
-                    ff = 0
-                    break
-
-                if ((thresh_A <= go_in_A[y]) and (thresh_N <= go_in_N[y])):
-                    ff = ff + 1
-                    # print("above the threshold")
+            if ((thresh_A <= go_in_A[-1]) and (thresh_N <= go_in_N[-1])):
+                ff = ff + 1
+                # print("above the threshold")
 
             if j > len(array1):
                 # print("condition on")
@@ -272,32 +270,23 @@ def code2(array1, array2, T):
 
             thresh_N = thresh(go_in_N, rrr)
 
+            if ((thresh_A <= go_in_A[-1]) and (thresh_N <= go_in_N[-1])):
+                ff = ff + 1
 
+                print("thresh A\t", thresh_A)
+                print("go_in_a \t", go_in_A[-1])
 
-            for y in range(len(go_in_N)):
+                print("############################")
 
+                print("thresh N\t", thresh_N)
+                print("go_in_N \t", go_in_N[-1])
 
-                if ((thresh_A <= go_in_A[y]) and (thresh_N <= go_in_N[y])):
-
-
-                    ff = ff + 1
-
-                    print("thresh A\t", thresh_A)
-                    print("go_in_a \t", go_in_A[y])
-
-                    print("############################")
-
-                    print("thresh N\t", thresh_N)
-                    print("go_in_N \t", go_in_N[y])
-
-
-
-                    cond = True
-                    print("condition true")
-                    # print("###################################")
-                    final.append(T[i])
-                    index.append(seg)
-                    # break
+                cond = True
+                print("condition true")
+                # print("###################################")
+                final.append(T[i])
+                index.append(seg)
+                # break
 
             if (cond == True):
                 seg = 0
@@ -324,7 +313,7 @@ def code2(array1, array2, T):
     print("finals are\t", final)
     print("index are\t", index)
 
-    return final
+    return final, index
 
 def threshold_finding(array1, array2, array3, array4):
 
@@ -333,34 +322,39 @@ def threshold_finding(array1, array2, array3, array4):
     Y = code2(array3, array4, T)
 
     print("Y equals to \t", Y)
-    teste = Y
+    teste = Y[0]
+    index = Y[1]
+    # index = 0
+    mini = index[0]
 
-    index =0
-
-    mini = teste[0]
-
-    for i in range(0, len(teste)):
+    for i in range(0, len(index)):
         # Compare elements of array with min
-        if (teste[i] <= mini):
-            mini = teste[i];
+        if (index[i] < mini):
+            mini = index[i];
 
-    pourc = Y
+
+    iidex = []
+
+    pourc = Y[0]
     xtt = []
     for i in range (len(teste)):
-        if(teste[i] == mini):
+        if(index[i] == mini):
             xtt.append(pourc[i])
+            iidex.append(index[i])
 
-    return xtt, index
+    return xtt, iidex
 
 def threshold_finding_pre(array1, array2, T):
 
     print("thresh pre")
     print("T\t", T)
 
-    Y = code2(array1, array2, T)
+    XR = T
+
+    Y = code2(array1, array2, XR)
 
     print("Y equals to \t", Y)
-    teste = Y
+    teste = Y[1]
 
     mini = teste[0]
 
@@ -369,7 +363,7 @@ def threshold_finding_pre(array1, array2, T):
         if (teste[i] <= mini):
             mini = teste[i];
 
-    pourc = Y
+    pourc = Y[0]
     xtt = []
     for i in range (len(teste)):
         if(teste[i] == mini):
@@ -390,11 +384,15 @@ def test_pre(path, ID, fs, T):
 
     app_pre, NN50_pre = features(peak, fs)
 
-    print("lenghgtt equals to\t", len(app_pre))
+    STD_app = std_compute(app_pre)
+    STD_NN50 = std_compute(NN50_pre)
+
+
+    print("lenghgtt equals to\t", len(STD_app))
 
     print("T equals to \t", T)
 
-    XX = threshold_finding_pre(app_pre, NN50_pre, T)
+    XX = threshold_finding_pre(STD_app, STD_NN50, T)
 
     return XX
 
@@ -479,27 +477,29 @@ XX = threshold_finding(STD_app, STD_NN50, STD_app_pre,STD_NN50_pre)
 IDs = ["PN06-3",  "PN06-4", "PN06-5"]
 
 T = XX[0]
-path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN06\\"
+
 fs = 512
 
-# for i in range(len(IDs)):
-#
-#     print("######################################################################")
-#     print("working on the acquisition number\t", IDs[i])
-#
-#     XV = test_pre(path, IDs[i], fs, T)
-#
-#     T = XV
+for i in range(len(IDs)):
+
+    path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN06\\"
+    print("######################################################################")
+    print("working on the acquisition number\t", IDs[i])
+
+    XV = test_pre(path, IDs[i], fs, T)
+
+    T = XV
 
 print("final T equals to", T)
+print("final pourcentage to use\t", T[0])
 # == working on the pre-ictal or inter-ictal
 
 
-app = app_pre
-NN50 = NN50_pre
-
-STD_app = STD_app_pre
-STD_NN50 = STD_NN50_pre
+# app = app_pre
+# NN50 = NN50_pre
+#
+# STD_app = STD_app_pre
+# STD_NN50 = STD_NN50_pre
 
 
 first = 0
@@ -546,7 +546,7 @@ xy = numpy.zeros(len(app), dtype=float, order='C')
 arr=[]
 arr1=[]
 
-percentage = 73
+percentage = T[0]
 thresh_AP = thresholding(STD_app , percentage)
 thresh_nn = thresholding(STD_NN50, percentage)
 
@@ -586,8 +586,8 @@ while(True):
 first_line = LineString(np.column_stack((tt_healthy,STD_app)))
 second_line = LineString(np.column_stack((tt_healthy,arr)))
 intersection = first_line.intersection(second_line)
-# x, y = LineString(intersection).xy
-# print(" x \t", x)
+x, y = LineString(intersection).xy
+print(" x \t", x)
 
 arr_n=[]
 arr1_n=[]
@@ -643,8 +643,8 @@ while(True):
 first_line_n = LineString(np.column_stack((tt_healthy, STD_NN50)))
 second_line_n = LineString(np.column_stack((tt_healthy, arr_n)))
 intersection_n = first_line_n.intersection(second_line_n)
-# x_n, y_n = LineString(intersection_n).xy
-# print((x_n))
+x_n, y_n = LineString(intersection_n).xy
+print((x_n))
 
 round_app = []
 round_NN50 = []
