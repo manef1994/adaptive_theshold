@@ -1,6 +1,8 @@
 import bisect
 import math
 import statistics
+
+import pyentrp as pyentrp
 # import neurokit2 as nk
 from shapely.geometry import LineString
 import numpy as np
@@ -12,15 +14,20 @@ import wfdb
 import antropy as ant
 import statistics
 from mne.io import read_raw_edf
+import EntropyHub
+import entropy as ent
 
-def read_wfdb(path, start, end):
+import warnings
+warnings.filterwarnings("ignore")
 
-    record = wfdb.rdsamp(path, sampfrom= start, sampto= end)
-    # record = wfdb.rdsamp(path)
+def read_wfdb(path):
+
+    # record = wfdb.rdsamp(path, sampfrom= start, sampto= end)
+    record = wfdb.rdsamp(path)
     # annotation = wfdb.rdann(path, 'ecg')
 
-    # annotation = wfdb.rdann(path, 'ari')
-    annotation = wfdb.rdann(path, 'ari', sampfrom= start, sampto= end)
+    # annotation = wfdb.rdann(path, 'ari', sampfrom= start, sampto= end)
+    annotation = wfdb.rdann(path, 'ari')
     print('annotion')
     # print(annotation.sample)
     # print(annotation.symbol)
@@ -56,7 +63,43 @@ def read_wfdb(path, start, end):
 
     print('peaks length\t', len(peak))
     return signal, peak, fs
+def read_wfdb_interictal(path, start, end):
 
+    record = wfdb.rdsamp(path, sampfrom= start, sampto= end)
+    annotation = wfdb.rdann(path, 'ari', sampfrom= start, sampto= end)
+    print('annotion')
+
+    # Read an annotation as an Annotation object
+    sig = record[0]
+    rr = record[1]
+    print('rr\t', rr)
+
+    fs = rr['fs']
+    print('fs equals to: ', fs)
+
+    i = 0
+    # l_n = end - start
+    start = 0
+    end = rr['sig_len']
+    l_n = rr['sig_len']
+    signal = []
+
+    while i < l_n:
+        an = sig[i]
+        signal.append(an)
+        i = i + 1
+
+    annotation.sample = annotation.sample - start
+    anno = ["|", "N", "L", "R", "B", "A", "a", "J", "S", "V", "r", "F", "e", "j", "n", "E", "/", "f", "Q", "?"]
+    peak = []
+
+    for i in range(len(annotation.symbol)):
+
+        if (annotation.symbol[i] in anno):
+            peak.append(annotation.sample[i])
+
+    print('peaks length\t', len(peak))
+    return signal, peak, fs
 def features(peaks, fs):
 
     NN50, approximate, = ([] for i in range(2))
@@ -78,12 +121,13 @@ def features(peaks, fs):
         for i in range(len(peaks_in) - 1):
             new = peaks_in[i + 1] - peaks_in[i]
             new = (new / fs)
-            # print(new)
+
             RRi.append(new)
             if (new > 0.05):
                 ff = ff+1
 
         NN50.append(ff)
+
         approximate.append(ant.app_entropy(RRi))
 
         start = start + (10 * fs)
@@ -94,7 +138,6 @@ def features(peaks, fs):
             break
 
     return approximate, NN50
-
 def std_compute(xx):
     i = 0
     j = 6
@@ -113,12 +156,10 @@ def std_compute(xx):
         if j > len(xx):
             break
     return STD
-
 def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return array[idx]
-
 def thresholding(array, thresh):
     i = 0
     j = 5
@@ -141,7 +182,6 @@ def thresholding(array, thresh):
 
 
     return Thresh
-
 def thresh_values(array):
 
     Thresh = []
@@ -164,24 +204,19 @@ def thresh_values(array):
             break
 
     return Thresh
-
 def thresh(array, thresh):
 
     mean = np.mean(array)
     percent = (mean / 100) * thresh
 
     return (mean + percent)
-
 def code1(array1, array2):
 
     print("Workin on the inter-ictal period")
-    ff = 0
-    index = []
     per = []
     T = []
-    it_n = 90 - 70
 
-    for i in range (50, 100):
+    for i in range (40, 101):
         per.append(i)
 
     # print("per values are \t", per)
@@ -194,7 +229,7 @@ def code1(array1, array2):
         ii = 0
         j = 5
 
-        # print("testing precentage\t", per[i])
+        print("testing precentage\t", per[i])
 
         while (True):
 
@@ -203,25 +238,26 @@ def code1(array1, array2):
             go_in_A = array1[ii:j]
             go_in_N = array2[ii:j]
 
-            # print("segment", seg)
+            print("segment", seg)
             seg = seg + 1
 
             thresh_A = thresh(go_in_A, per[i])
             thresh_N = thresh(go_in_N, per[i])
 
-            if (ff > 1):
+            if (ff >= 2):
                 ff = 0
+                print("break")
                 break
 
             if ((thresh_A <= go_in_A[-1]) and (thresh_N <= go_in_N[-1])):
                 ff = ff + 1
-                # print("above the threshold")
+                print("above the threshold")
 
             if j > len(array1):
                 # print("condition on")
                 seg = 0
 
-                if (ff == 0):
+                if (ff < 2):
                     T.append(per[i])
 
                 break
@@ -233,7 +269,6 @@ def code1(array1, array2):
 
     print("the percentage extracted are :\t", T)
     return T
-
 def code2(array1, array2, T):
 
     print("Working on the pre-ictal period")
@@ -312,9 +347,10 @@ def code2(array1, array2, T):
 
     print("finals are\t", final)
     print("index are\t", index)
+    if not final:
+        final = T
 
     return final, index
-
 def threshold_finding(array1, array2, array3, array4):
 
     T = code1(array1, array2)
@@ -343,7 +379,6 @@ def threshold_finding(array1, array2, array3, array4):
             iidex.append(index[i])
 
     return xtt, iidex
-
 def threshold_finding_pre(array1, array2, T):
 
     print("thresh pre")
@@ -353,31 +388,34 @@ def threshold_finding_pre(array1, array2, T):
 
     Y = code2(array1, array2, XR)
 
-    print("Y equals to \t", Y)
-    teste = Y[1]
+    if (len(Y[0]) > 0):
 
-    mini = teste[0]
+        print("Y equals to \t", Y)
+        teste = Y[1]
 
-    for i in range(0, len(teste)):
-        # Compare elements of array with min
-        if (teste[i] <= mini):
-            mini = teste[i];
+        mini = teste[0]
 
-    pourc = Y[0]
-    xtt = []
-    for i in range (len(teste)):
-        if(teste[i] == mini):
-            xtt.append(pourc[i])
+        for i in range(0, len(teste)):
+            # Compare elements of array with min
+            if (teste[i] <= mini):
+                mini = teste[i];
+
+        pourc = Y[0]
+        xtt = []
+        for i in range(len(teste)):
+            if (teste[i] == mini):
+                xtt.append(pourc[i])
+    else:
+        xtt = T
+        print("no detection was made for this acquisition !!")
 
     return xtt
-
 def reading_EDF(path, ID):
 
     with open(path + "peaks-" + ID + ".txt", 'r') as file1:
         peaks = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
 
     return peaks
-
 def test_pre(path, ID, fs, T):
 
     peak = reading_EDF(path, ID)
@@ -397,110 +435,211 @@ def test_pre(path, ID, fs, T):
     return XX
 
 # =============================================================================================================
-# # == loading epileptic patients acquisitions taken from INS " DAvid Olivier"
-# path = "C:\\Users\\Ftay\Desktop\\PhD\\tests\\INS - David\\"
-# fs = 512
-# ID = "0252GRE-EEG_13"
-# with open(path + "peaks-" + ID + ".txt", 'r') as file1:
-#     peaks = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
 
-# path = "C:\\Users\\Ftay\Desktop\\PhD\\tests\\INS - David\\inter-ictal\\"
-# ID = "0252GRE"
-# fs = 512
-# # == load the epileptic patient
-# with open(path + "peaks-" + ID + "-end-EEG-14.txt", 'r') as file1:
-#     peaks = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
-
-# thresh_AP = 0.06
-# thresh_nn = 6
-
-# =============================================================================================================
-# path = "C:\\Users\\Ftay\\Desktop\\PhD\\tests\\siena_vs_fantasia\\Peaks_RR\\PN00\\"
 # path = "C:\\Users\\Ftay\\Desktop\\PhD\\tests\\siena_vs_fantasia\\unhealthy\\"
 # path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN06\\"
 # ID = "PN06-2"
 
 # == inter-ictal period
-path = "E:\\data\\tests\\Peaks_RR\\Interictal\\PN06\\"
-fs = 512
-# = =
-ID = "PN06-3"
-peaks = reading_EDF(path, ID)
-# = =
-ID = "PN06-4"
-peaks1 = reading_EDF(path, ID)
-# = =
-ID = "PN06-5"
-peaks2 = reading_EDF(path, ID)
-# = =
+# path = "E:\\data\\tests\\Peaks_RR\\Interictal\\PN17\\"
+# path = "E:\\data\\tests\\Peaks_RR\\siena\\Interictal\\PN10\\"
+# path = "E:\\data\\tests\\Peaks_RR\\fabrice\\inter-ictal\\PN07\\"
+# path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\Interictal\\PN00\\"
+# fs = 512
+#
+# ID = "PN10-2-0_60"
+# ID = "PN00-3-30"
 
-NN50, app, NN501, app1, NN502, app2 = ([] for i in range(6))
-app, NN50 = features(peaks,fs)
-app1, NN501 = features(peaks1,fs)
-app2, NN502 = features(peaks2,fs)
+# peaks = reading_EDF(path, ID)
+# # = =
+# ID = "PN03-06-inter-ictal"
+# peaks1 = reading_EDF(path, ID)
+# # ==
+# ID = "PN17-2-0_60"
+# peaks2 = reading_EDF(path, ID)
+# = =
+# ID = "PN13-2-0_60"
+# peaks3 = reading_EDF(path, ID)
+# # = =
+# ID = "PN13-2-30"
+# peaks4 = reading_EDF(path, ID)
+# # = =
+# ID = "PN13-3-30"
+# peaks5 = reading_EDF(path, ID)
 
-app = np.append(app, app1)
-app = np.append(app, app2)
+# NN50, app, NN501, app1, NN502, app2 = ([] for i in range(6))
+# app, NN50 = features(peaks,fs)
+# app1, NN501 = features(peaks1,fs)
+# app2, NN502 = features(peaks2,fs)
+# app3, NN503 = features(peaks3,fs)
+# app4, NN504 = features(peaks4,fs)
+# app5, NN505 = features(peaks5,fs)
 
-NN50 = np.append(NN50, NN501)
-NN50 = np.append(NN50, NN502)
+# app = np.append(app, app1)
+# app = np.append(app, app2)
+# app = np.append(app, app3)
+# app = np.append(app, app4)
+# app = np.append(app, app5)
+
+# NN50 = np.append(NN50, NN501)
+# NN50 = np.append(NN50, NN502)
+# NN50 = np.append(NN50, NN503)
+# NN50 = np.append(NN50, NN504)
+# NN50 = np.append(NN50, NN505)
 ########################################################################################################################
 # == pre-ictal periods
-path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN06\\"
-fs = 512
+path = "E:\\data\\tests\\Peaks_RR\\fabrice\\pre-ictal\\PN06\\"
+# path = "E:\\data\\tests\\Peaks_RR\\fabrice\\inter-ictal\\PN06\\"
+# path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN00\\"
+# fs = 512
+fs = 256
 
-ID = "PN06-3"
+ID = "211109C-AEX_0004"
+# ID = "PN06-03-inter-ictal"
+# ID = "signal-PN08-180314D-AEX_0001"
+
+percentage = 53
+
+seizure = 13 + (35/60)
+
 peaks_pre = reading_EDF(path, ID)
 
-NN50_pre, app_pre = ([] for i in range(2))
+# path = "E:\\data\\tests\\Peaks_RR\\fabrice\\pre-ictal\\PN06\\"
+# ID = "211109C-AEX_0004"
+#
+# pre = reading_EDF(path, ID)
+#
+# peaks_pre = np.append(peaks_pre, pre)
+#
+# print("lenght of the pre-ictal period is:\t", )
+
 app_pre, NN50_pre = features(peaks_pre,fs)
 
-# thresh_AP = 0.14
-# thresh_nn = 0.04
+# =============================================================================================================
+
+# path = 'E://data//post-ictal-heart-rate-oscillations-in-partial-epilepsy-1.0.0//sz07'
+# ID = "sz03"
+# fs = 200
+# # # =====================
+# #  01:02:43
+#
+# signal_input, peaks, fs = read_wfdb(path)
+# sig_len = len(signal_input)
+# print("sig_len\t", sig_len)
+# print("length of the input signal is \t", ((len(signal_input)/fs)/60))
+#
+# start = (fs * 60 * 60 * 0) + (fs * 60 * 0) + (34 * fs)
+# end = (fs * 60 * 60 * 0) + (fs * 60 * 24) + (34 * fs)
+#
+# start = (fs * 60 * 60 * 0) + (fs * 60 * 24) + (36 * fs)
+# # # end = (fs * 60 * 60 * 1) + (fs * 60 * 55) + (43 * fs)
+# print("start\t", start)
+#
+# # signal_input, peaks, fs = read_wfdb_interictal(path,start, end)
+# signal_input, peaks, fs = read_wfdb_interictal(path,start, sig_len)
+#
+# peaks = [x - start for x in peaks]
+# app, NN50 = features(peaks,fs)
+#
+# # === The pre-ictal period
+#
+# ## 02:55:51
+# start = (fs * 60 * 60 * 0) + (fs * 60 * 0) + (36 * fs)
+# end = (fs * 60 * 60 * 0) + (fs * 60 * 24) + (36 * fs)
+#
+# # start= (fs * 60 * 60 * 1) + (fs * 60 * 4) + (45 * fs)
+# # end = (fs * 60 * 60 * 2) + (fs * 60 * 14) + (45 * fs)
+#
+# signal_input, peaks_re, fs = read_wfdb_interictal(path, start, end)
+#
+# peaks_re = [x - start for x in peaks_re]
+#
+# print("pre peak equals to\t", peaks_re)
+#
+# NN50_pre, app_pre = ([] for i in range(2))
+# app_pre, NN50_pre = features(peaks_re,fs)
 
 # =============================================================================================================
-# NN50, app = ([] for i in range(2))
-# NN50_pre, app_pre = ([] for i in range(2))
+# # == loading epileptic patients acquisitions taken from INS " DAvid Olivier"
+# path = "E:\\data\\tests\\INS - David\\"
+# fs = 512
+# ID = "0252GRE-EEG_13"
+# ID = "0252GRE-EEG_14"
+# with open(path + "peaks-" + ID + ".txt", 'r') as file1:
+#     peaks_pre = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
+#
+# peaks_pre = reading_EDF(path, ID)
+# app_pre, NN50_pre = features(peaks_pre,fs)
+#
+# # ============================================================================================================
+#
+# path = "E:\\data\\tests\\INS - David\\inter-ictal\\"
+# ID = "0252GRE-end-EEG-13"
+# ID = "0252GRE-end-EEG-14"
+# # ID = "0047GRE-60-125"
+# # ID = "0047GRE-125-194"
+# fs = 512
+# # == load the epileptic patient
+# # with open(path + "peaks-" + ID + "-end-EEG-14.txt", 'r') as file1:
+#
+# path = "E:\\data\\tests\\Peaks_RR\\siena\\pre-ictal\\PN06\\"
+# ID = "PN06-2"
+#
+# with open(path + "peaks-" + ID + ".txt", 'r') as file1:
+#     peaks = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
 
+# app, NN50 = features(peaks,fs)
+# seizure = 6.21
+# seizure = 5 + (49/60)
+
+# =============================================================================================================
 pre_ictal = []
 STD = []
 STD_healthy = []
 
-STD_app = std_compute(app)
-STD_NN50 = std_compute(NN50)
+# STD_app = std_compute(app)
+# STD_NN50 = std_compute(NN50)
 
 STD_app_pre = std_compute(app_pre)
 STD_NN50_pre = std_compute(NN50_pre)
 
-XX = threshold_finding(STD_app, STD_NN50, STD_app_pre,STD_NN50_pre)
+# percentage = 62
 
-IDs = ["PN06-3",  "PN06-4", "PN06-5"]
+# STD_app_test = STD_app_pre[0: (len(STD_app_pre)-10)]
+# STD_NN50_test = STD_NN50_pre[0: (len(STD_NN50_pre)-10)]
 
-T = XX[0]
-
-fs = 512
-
-for i in range(len(IDs)):
-
-    path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN06\\"
-    print("######################################################################")
-    print("working on the acquisition number\t", IDs[i])
-
-    XV = test_pre(path, IDs[i], fs, T)
-
-    T = XV
-
-print("final T equals to", T)
-print("final pourcentage to use\t", T[0])
-# == working on the pre-ictal or inter-ictal
-
-
-# app = app_pre
-# NN50 = NN50_pre
+# XX = threshold_finding(STD_app, STD_NN50, STD_app_pre, STD_NN50_pre)
 #
-# STD_app = STD_app_pre
-# STD_NN50 = STD_NN50_pre
+# IDs = ["PN10-2", "PN10-3", "PN10-4", "PN10-5", "PN10-6", "PN10-7", "PN10-8", "PN10-9", "PN10-10"]
+# #
+# T = XX[0]
+#
+# for i in range(len(IDs)):
+#
+#     # path = "E:\\data\\tests\\Peaks_RR\\fabrice\\pre-ictal\\PN10\\"
+#     path = "E:\\data\\tests\\siena_vs_fantasia\\Peaks_RR\\PN10"
+#     print("######################################################################")
+#     print("working on the acquisition number\t", IDs[i])
+#
+#     XV = test_pre(path, IDs[i], fs, T)
+#
+#     T = XV
+#
+# print("final T equals to", T)
+# print("final pourcentage to use\t", T[0])
+# == working on the pre-ictal or inter-ictal
+#
 
+app = app_pre
+NN50 = NN50_pre
+
+STD_app = STD_app_pre
+STD_NN50 = STD_NN50_pre
+
+# print("seizure\t", len(STD_app) - seizure)
+
+thresh_AP = thresholding(STD_app , percentage)
+thresh_nn = thresholding(STD_NN50, percentage)
 
 first = 0
 tt = [first]
@@ -546,10 +685,6 @@ xy = numpy.zeros(len(app), dtype=float, order='C')
 arr=[]
 arr1=[]
 
-percentage = T[0]
-thresh_AP = thresholding(STD_app , percentage)
-thresh_nn = thresholding(STD_NN50, percentage)
-
 ln = int(len(STD_app))
 xx = 0
 
@@ -581,7 +716,6 @@ while(True):
 
     if (i == len(STD_app) - 4):
         break
-
 
 first_line = LineString(np.column_stack((tt_healthy,STD_app)))
 second_line = LineString(np.column_stack((tt_healthy,arr)))
@@ -653,19 +787,19 @@ round_NN50 = []
 # == plotting the results
 
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(tt, app, label="approximate entropy of healthy signal", marker='o')
-axs[1].plot(tt_healthy,STD_app, label="STD of approximate entropy", marker='o')
+axs[0].plot(tt, app, label="approximate entropy feature", marker='o')
+axs[1].plot(tt_healthy,STD_app, label="STD of approximate entropy feature", marker='o')
 axs[0].axvline(x=tt[-1] - 600, color='red', linestyle='--')
-axs[1].axvline(x=len(STD_app) - 10, color='red', linestyle='--')
+axs[1].axvline(x=len(STD_app) - 5, color='red', linestyle='--')
 
-axs[0].set_title('Subject ' + ID,fontsize=24, y=1)
+axs[0].set_title('Acquisition ' + ID, fontsize=24, y=1)
 
 axs[1].plot(tt_healthy, arr, color='blue', linestyle='--')
 
-axs[0].set_xlabel('sample per min')
+axs[0].set_xlabel('Time in min')
 axs[0].set_ylabel('entropy value')
-axs[1].set_xlabel('sample per min')
-axs[1].set_ylabel('entropy value')
+axs[1].set_xlabel('Time in min')
+axs[1].set_ylabel('STD value')
 axs[0].grid(True)
 axs[1].grid(True)
 axs[0].legend()
@@ -687,21 +821,24 @@ elif intersection.geom_type == 'Point':
 
 # == plotting NN50
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(tt_healthy, STD_app, label="STD of ApEn", marker='o')
-axs[1].plot(tt_healthy, STD_NN50, label="STD of NN50", marker='o')
+axs[0].plot(tt_healthy,STD_app, label="STD of approximate entropy feature", marker='o')
+axs[1].plot(tt_healthy, STD_NN50, label="STD of NRRi feature", marker='o')
 
-axs[0].set_title('Subject ' + ID,fontsize=24, y=1)
+axs[0].set_title('Acquisition ' + ID,fontsize=24, y=1)
 
 # axs[0].axvline(x= len(STD_app) - 10, color='red', linestyle='--')
 # axs[1].axvline(x= len(STD_NN50) - 10, color='red', linestyle='--')
 
-axs[0].axvline(x= (len(STD_app) - 10), color='red', linestyle='--')
-axs[1].axvline(x= (len(STD_NN50) - 10), color='red', linestyle='--')
+axs[0].axvline(x= (len(STD_app) - seizure), color='red', linestyle='--')
+axs[1].axvline(x= (len(STD_app) - seizure), color='red', linestyle='--')
 
-axs[0].set_xlabel('sample per min')
-axs[0].set_ylabel('entropy value')
-axs[1].set_xlabel('sample per min')
-axs[1].set_ylabel('entropy value')
+print("szireu time\t", len(STD_app) - seizure)
+# axs[1].axvline(x= (len(STD_NN50) - seizure), color='red', linestyle='--')
+
+axs[0].set_xlabel('Time in min')
+axs[0].set_ylabel('STD value')
+axs[1].set_xlabel('Time in min')
+axs[1].set_ylabel('STD value')
 axs[0].grid(True)
 axs[1].grid(True)
 axs[0].legend()
@@ -732,17 +869,17 @@ elif intersection_n.geom_type == 'Point':
 
 # == plotting NN50
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(tt, NN50, label=" NN50 curve", marker='o')
-axs[1].plot(tt_healthy, STD_NN50, label="STD of NN50", marker='o')
+axs[0].plot(tt, NN50, label=" NRRi feature", marker='o')
+axs[1].plot(tt_healthy, STD_NN50, label="STD of NRRi feature", marker='o')
 axs[0].set_title('Subject ' + ID,fontsize=24, y=1)
 
 axs[0].axvline(x=tt[-1] - 600, color='red', linestyle='--')
 axs[1].axvline(x= len(STD_NN50) - 10, color='red', linestyle='--')
 
-axs[0].set_xlabel('sample en seconde')
-axs[0].set_ylabel('valeur de entropie')
-axs[1].set_xlabel('sample en seconde')
-axs[1].set_ylabel('valeur de entropie')
+axs[0].set_xlabel('Time in min')
+axs[0].set_ylabel('NRRi value')
+axs[1].set_xlabel('Time in min')
+axs[1].set_ylabel('STD value')
 axs[0].grid(True)
 axs[1].grid(True)
 axs[0].legend()
@@ -762,3 +899,5 @@ elif intersection_n.geom_type == 'Point':
     axs[1].plot(*intersection_n.xy, 'o')
 
 plt.show()
+
+
