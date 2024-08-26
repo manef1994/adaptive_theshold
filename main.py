@@ -271,6 +271,17 @@ axs[1].grid(True)
 axs[0].legend()
 axs[1].legend()
 
+# ymin = 70 ; ymax = 275
+# axs[0].set_ylim([ymin,ymax])
+#
+# ymin_1 = 0; ymax_1 = 14
+# axs[1].set_ylim([ymin_1,ymax_1])
+#
+# if intersection_n.geom_type == 'MultiPoint':
+#     axs[1].plot(*LineString(intersection_n).xy, 'o')
+# elif intersection_n.geom_type == 'Point':
+#     axs[1].plot(*intersection_n.xy, 'o')
+
 # == plotting STD curves
 fig, axs = plt.subplots(2, 1)
 axs[0].plot(STD_app, label="STD de ApEn", marker='o')
@@ -307,19 +318,6 @@ axs[1].plot(thresh_nn, color='g', linestyle='--')
 
 
 
-
-# axs[1].plot(tt_healthy, arr_n, color='blue', linestyle='--')
-
-# ymin = 70 ; ymax = 275
-# axs[0].set_ylim([ymin,ymax])
-#
-# ymin_1 = 0; ymax_1 = 14
-# axs[1].set_ylim([ymin_1,ymax_1])
-#
-# if intersection_n.geom_type == 'MultiPoint':
-#     axs[1].plot(*LineString(intersection_n).xy, 'o')
-# elif intersection_n.geom_type == 'Point':
-#     axs[1].plot(*intersection_n.xy, 'o')
 
 # path = "/home/ftay/Fabrice/Features/PN09/"
 # # path = "C:\\Users\\Ftay\\Desktop\\PhD\\tests\\siena_vs_fantasia\\Peaks_RR\\PN013"
