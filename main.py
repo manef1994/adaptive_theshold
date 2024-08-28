@@ -17,6 +17,7 @@ from mne.io import read_raw_edf
 
 # ===================================
 " Reading files functions "
+# =====================================================
 def read_wfdb(path, start, end):
 
     record = wfdb.rdsamp(path, sampfrom= start, sampto= end)
@@ -77,11 +78,12 @@ def reading_EDF(path, ID):
     return signal_input
 
 
-# ===================================
+# =====================================================
 " Data processing function including:   "
 "     Features extraction               "
 "     computing the Standard deviation  "
 "     computing the thresholdi value    "
+# =====================================================
 
 def features(peaks, fs):
 
@@ -167,29 +169,41 @@ def thresholding(array, thresh):
 # =============================================================================================================
 # == reading the Siena scalp EEG Database
 
-path = "C:\\Users\\Manef\\Desktop\\tests_22_02_2024\\tests\\Peaks_RR\\PN06\\"
+# =====================================================
+"Reading the data"
+# =====================================================
 
+path = "C:\\Users\\Manef\\Desktop\\tests_22_02_2024\\tests\\Peaks_RR\\PN06\\"
 ID = "PN06-2"
 fs = 512
-
 with open(path + "peaks-" + ID + ".txt", 'r') as file1:
     peaks = [float(i) for line in file1 for i in line.split('\n') if i.strip()]
 
+# =====================================================
+"define the percentage to use to compute the theshold values"
+# =====================================================
 
 percentage = 60
 
+# =====================================================
 "Here ewe define how much ictal period we have in the signal (the period after the epileptic seizure )"
+# =====================================================
+
 pre_ict = 10
 
-
+# =====================================================
 " Compute the ApEN and the NRRi Features for the input ECG signal"
+# =====================================================
+
 app, NNRi = features(peaks,fs)
 
 
-# =============================================================================================================
+# =====================================================
+"Computing the standard deviation fro the computed features"
+# =====================================================
+
 STD_app = std_compute(app)
 STD_NNRi = std_compute(NNRi)
-
 
 thresh_AP = thresholding(STD_app , percentage)
 thresh_nn = thresholding(STD_NNRi, percentage)
@@ -198,27 +212,29 @@ arr=[]
 arr_n=[]
 arr1 = [0] * len(thresh_AP)
 
+# =====================================================
 " Extraction of the intersections of the STD curve of the ApEn and the NNRi features computed with the threshold values"
-
+# =====================================================
 
 tt = np.arange(0, len(STD_app))
 
 first_line = LineString(np.column_stack((tt,STD_app)))
 second_line = LineString(np.column_stack((tt,thresh_AP)))
 intersection = first_line.intersection(second_line)
-# x, y = LineString(intersection).xy
-# print(" x \t", x)
+x, y = LineString(intersection).xy
+print(" x \t", x)
 
 
 
 first_line = LineString(np.column_stack((tt, STD_NNRi)))
 second_line = LineString(np.column_stack((tt, thresh_nn)))
 intersection_n = first_line.intersection(second_line)
-# x_n, y_n = LineString(intersection_n).xy
-# print((x_n))
+x_n, y_n = LineString(intersection_n).xy
+print((x_n))
 
-# =============================================================================================================
-# == plotting the results
+# =====================================================
+"Plotting the results"
+# =====================================================
 
 fig, axs = plt.subplots(2, 1)
 axs[0].plot(app, label="approximate entropy of the input signal", marker='o')
@@ -246,13 +262,15 @@ ymin_1 = 0
 ymax_1 = 0.25
 axs[1].set_ylim([ymin_1,ymax_1])
 
-# if intersection.geom_type == 'MultiPoint':
-#     axs[1].plot(*LineString(intersection).xy, 'o')
-# elif intersection.geom_type == 'Point':
-#     axs[1].plot(*intersection.xy, 'o')
+if intersection.geom_type == 'MultiPoint':
+    axs[1].plot(*LineString(intersection).xy, 'o')
+elif intersection.geom_type == 'Point':
+    axs[1].plot(*intersection.xy, 'o')
 
+# =====================================================
+"plotting NNRi feature curves"
+# =====================================================
 
-# == plotting NNRi
 fig, axs = plt.subplots(2, 1)
 axs[0].plot(NNRi, label=" NNRi curve", marker='o')
 axs[1].plot(STD_NNRi, label="NRRi STD curve", marker='o')
@@ -271,18 +289,21 @@ axs[1].grid(True)
 axs[0].legend()
 axs[1].legend()
 
-# ymin = 70 ; ymax = 275
-# axs[0].set_ylim([ymin,ymax])
-#
-# ymin_1 = 0; ymax_1 = 14
-# axs[1].set_ylim([ymin_1,ymax_1])
-#
-# if intersection_n.geom_type == 'MultiPoint':
-#     axs[1].plot(*LineString(intersection_n).xy, 'o')
-# elif intersection_n.geom_type == 'Point':
-#     axs[1].plot(*intersection_n.xy, 'o')
+ymin = 70 ; ymax = 275
+axs[0].set_ylim([ymin,ymax])
 
-# == plotting STD curves
+ymin_1 = 0; ymax_1 = 14
+axs[1].set_ylim([ymin_1,ymax_1])
+
+if intersection_n.geom_type == 'MultiPoint':
+    axs[1].plot(*LineString(intersection_n).xy, 'o')
+elif intersection_n.geom_type == 'Point':
+    axs[1].plot(*intersection_n.xy, 'o')
+
+# =====================================================
+"plotting both features STD curves"
+# =====================================================
+
 fig, axs = plt.subplots(2, 1)
 axs[0].plot(STD_app, label="STD de ApEn", marker='o')
 axs[1].plot(STD_NNRi, label="STD de NNRi", marker='o')
@@ -303,21 +324,23 @@ axs[1].legend()
 axs[0].plot(thresh_AP, color='g', linestyle='--')
 axs[1].plot(thresh_nn, color='g', linestyle='--')
 
-# if intersection.geom_type == 'MultiPoint':
-#     axs[0].plot(*LineString(intersection).xy, 'o')
-#
-# elif intersection.geom_type == 'Point':
-#     axs[0].plot(*intersection.xy, 'o')
-#
-#
-# if intersection_n.geom_type == 'MultiPoint':
-#     axs[1].plot(*LineString(intersection_n).xy, 'o')
-#
-# elif intersection_n.geom_type == 'Point':
-#     axs[1].plot(*intersection_n.xy, 'o')
+if intersection.geom_type == 'MultiPoint':
+    axs[0].plot(*LineString(intersection).xy, 'o')
+
+elif intersection.geom_type == 'Point':
+    axs[0].plot(*intersection.xy, 'o')
 
 
+if intersection_n.geom_type == 'MultiPoint':
+    axs[1].plot(*LineString(intersection_n).xy, 'o')
 
+elif intersection_n.geom_type == 'Point':
+    axs[1].plot(*intersection_n.xy, 'o')
+
+plt.show()
+# =====================================================
+"saving the results"
+# =====================================================
 
 # path = "/home/ftay/Fabrice/Features/PN09/"
 # # path = "C:\\Users\\Ftay\\Desktop\\PhD\\tests\\siena_vs_fantasia\\Peaks_RR\\PN013"
@@ -326,4 +349,3 @@ axs[1].plot(thresh_nn, color='g', linestyle='--')
 # np.savetxt(path + 'app-'+ ID + '.txt', np.array(app))
 # np.savetxt(path + 'NRRi-'+ ID + '.txt', np.array(NNRi))
 
-plt.show()
